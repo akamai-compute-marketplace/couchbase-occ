@@ -1,2 +1,2 @@
 # couchbase-occ
-Akamai Connected Cloud Couchbase Cluster
+Akamai Cloud Marketplace Couchbase One-Click Cluster

@@ -1,0 +1,122 @@
+---
+- name: wait
+  pause: 
+    minutes: 1
+
+# there is a built-in action to convert provisioner hostname from loopback to host ip when you add a second node to the cluster
+#- name: init couchbase provisioner node
+#  shell: |
+#      /opt/couchbase/bin/couchbase-cli node-init -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+#      --node-init-data-path /opt/couchbase/var/lib/couchbase/data \
+#      --node-init-index-path /opt/couchbase/var/lib/couchbase/data \
+#      --node-init-hostname {{ couchbase_data.server[0].instance.ip_pub1 }}
+ #     --ipv4
+ # run_once: true
+ # delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+# 
+# minimum plan size = 8gb / g6-standard-4
+# calculate service ratios for different plan sizes
+# divide services across nodes. 
+# 3 each of data,query,index
+# 2 each of fts,analytics,eventing 
+# cluster-ramsize is the quota for data, not the whole aggregate
+- name: init the couchbase cluster
+  shell: |
+      /opt/couchbase/bin/couchbase-cli cluster-init \
+      --cluster 127.0.0.1 \
+      --cluster-ramsize 2048 \
+      --cluster-username Administrator \
+      --cluster-password {{ couchbase_admin_pass | quote }} \
+      --services data,index,query \
+      --cluster-index-ramsize 1024 \
+      --cluster-eventing-ramsize 1024 \
+      --cluster-fts-ramsize 2048 \
+      --cluster-analytics-ramsize 1024 \
+      --cluster-fts-ramsize 1024 \
+      --index-storage-setting default \
+      --ip-family ipv4-only \
+      --node-to-node-encryption off
+  run_once: true
+  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+- name: add node 2
+  shell: |
+      /opt/couchbase/bin/couchbase-cli server-add -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+      --username Administrator \
+      --password {{ couchbase_admin_pass | quote }} \
+      --server-add https://{{ couchbase_data.server[1].instance.ip_pub1 }} \
+      --server-add-username Administrator \
+      --server-add-password {{ couchbase_admin_pass | quote }} \
+      --services data,index,query
+  run_once: true
+  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+#- name: rebalance node 2
+#  shell: |
+#      /opt/couchbase/bin/couchbase-cli rebalance -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+#      --username Administrator \
+#      --password {{ couchbase_admin_pass | quote }}
+#  run_once: true
+#  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+- name: add node 3
+  shell: |
+      /opt/couchbase/bin/couchbase-cli server-add -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+      --username Administrator \
+      --password {{ couchbase_admin_pass | quote }} \
+      --server-add https://{{ couchbase_data.server[2].instance.ip_pub1 }} \
+      --server-add-username Administrator \
+      --server-add-password {{ couchbase_admin_pass | quote }} \
+      --services data,index,query
+  run_once: true
+  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+#- name: rebalance node 3
+#  shell: |
+#      /opt/couchbase/bin/couchbase-cli rebalance -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+#      --username Administrator \
+#      --password {{ couchbase_admin_pass | quote }}
+#  run_once: true
+#  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+- name: add node 4
+  shell: |
+      /opt/couchbase/bin/couchbase-cli server-add -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+      --username Administrator \
+      --password {{ couchbase_admin_pass }} \
+      --server-add https://{{ couchbase_data.server[3].instance.ip_pub1 }} \
+      --server-add-username Administrator \
+      --server-add-password {{ couchbase_admin_pass | quote }} \
+      --services fts,analytics,eventing
+  run_once: true
+  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+#- name: rebalance node 4
+#  shell: |
+#      /opt/couchbase/bin/couchbase-cli rebalance -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+#      --username Administrator \
+#      --password {{ couchbase_admin_pass | quote }}
+#  run_once: true
+#  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+- name: add node 5
+  shell: |
+      /opt/couchbase/bin/couchbase-cli server-add -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+      --username Administrator \
+      --password {{ couchbase_admin_pass | quote }} \
+      --server-add https://{{ couchbase_data.server[4].instance.ip_pub1 }} \
+      --server-add-username Administrator \
+      --server-add-password {{ couchbase_admin_pass | quote }} \
+      --services fts,analytics,eventing
+  run_once: true
+  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+- name: rebalance node 5
+  shell: |
+      /opt/couchbase/bin/couchbase-cli rebalance -c couchbase://{{ couchbase_data.server[0].instance.ip_pub1 }} \
+      --username Administrator \
+      --password {{ couchbase_admin_pass | quote }}
+  run_once: true
+  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+
+# can we run rebalance once at the end?
