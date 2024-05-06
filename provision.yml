@@ -20,7 +20,7 @@
       root_pass: '{{ root_pass }}'
       authorized_keys: '{{ ssh_keys }}'
       private_ip: true
-#     stackscript_id: tbd
+      stackscript_id: 1366193
       ua_prefix: 'marketplace-couchbase-occ'
       tags: '{{ cluster_uuid }}'
       state: present
