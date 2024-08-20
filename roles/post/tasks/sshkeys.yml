@@ -1,4 +1,18 @@
+---
 # roles/post/tasks/sshkeys.yml
+# add root password and keys to cluster nodes
+- name: get root password
+  slurp:
+    src: "/etc/shadow"
+  run_once: true
+  delegate_to: localhost
+  register: shadow
+
+- name: set root password
+  set_fact:
+    root_password: "{{ shadow['content'] | b64decode | regex_search('^root.+') }}"
+  run_once: true
+  delegate_to: localhost
 
 # set account passwords
 - name: set root password on remote nodes
@@ -9,7 +23,7 @@
 
 - name: checking account keys
   stat:
-    path: '{{ local_home}}/.ssh/authorized_keys'
+    path: '{{ local_home }}/.ssh/authorized_keys'
   register: authorized_keys_file
 
 - name: adding account keys to sudo user

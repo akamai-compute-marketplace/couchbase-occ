@@ -1,9 +1,9 @@
 ---
 # vm configs
 - name: disable THP
-  template: 
-    src: templates/disable-thp.service.j2
-    dest: /etc/systemd/system/disable-thp.service
+  copy: 
+    src: 'files/disable-thp.service'
+    dest: '/etc/systemd/system/disable-thp.service'
 
 - name: reload and enable 
   systemd: 
@@ -37,7 +37,7 @@
       #jinja2: trim_blocks:False
       # couchbase
       {%- for count in range(server_count | int) %}
-      {{ couchbase_data.server[count].instance.ip_pub1 }} {{ couchbase_data.server[count].instance.hostname }}
+      {{ couchbase_data.server[count].instance.ip_priv1 }} {{ couchbase_data.server[count].instance.hostname }}
       {%- endfor %}  
 
 - name: apt update
@@ -72,4 +72,4 @@
   notify: restart ssh
 
 - name: add couchbase ports to ufw
-  import_tasks: ufw.yml
+  include_tasks: ufw.yml
