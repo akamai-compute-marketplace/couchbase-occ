@@ -59,8 +59,8 @@
       private_ip: true
       tags: '{{ linode_tags }}'
 # unlink from prod stackscript_id during testing
-#      stackscript_id: 1366193
-#      ua_prefix: 'marketplace-couchbase-occ'
+      stackscript_id: 1366193
+      ua_prefix: 'marketplace-couchbase-occ'
       state: present
     with_sequence: count='{{ server_count - 1 }}'
 
