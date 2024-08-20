@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
-trap "cleanup $? $LINENO" EXIT
+DEBUG="NO"
+if [ "${DEBUG}" == "NO" ]; then
+  trap "cleanup $? $LINENO" EXIT
+fi
 
 function cleanup {
   if [ "$?" != "0" ]; then
@@ -12,11 +15,8 @@ function cleanup {
 }
 
 # constants
-readonly ROOT_PASS=$(sudo cat /etc/shadow | grep root)
-readonly LINODE_PARAMS=($(curl -sH "Authorization: Bearer ${TOKEN_PASSWORD}" "https://api.linode.com/v4/linode/instances/${LINODE_ID}" | jq -r .type,.region,.image))
-readonly TAGS=$(curl -sH "Authorization: Bearer ${TOKEN_PASSWORD}" "https://api.linode.com/v4/linode/instances/${LINODE_ID}" | jq -r .tags)
-readonly RDNS=$(hostname -I | awk '{print $1}'| tr '.' '-' | awk {'print $1 ".ip.linodeusercontent.com"'})
 readonly VARS_PATH="./group_vars/couchbase/vars"
+readonly RDNS=$(hostname -I | awk '{print $1}'| tr '.' '-' | awk {'print $1 ".ip.linodeusercontent.com"'})
 
 # utility functions
 function destroy {
@@ -25,19 +25,6 @@ function destroy {
   else
     ansible-playbook /tmp/linode/destroy.yml
   fi
-}
-
-function secrets {
-  local SECRET_VARS_PATH="./group_vars/couchbase/secret_vars"
-  local VAULT_PASS=$(openssl rand -base64 32)
-  local TEMP_ROOT_PASS=$(openssl rand -base64 32)
-  local COUCHBASE_ADMIN_PASS=$(openssl rand -base64 32)
-  echo "${VAULT_PASS}" > ./.vault-pass
-  cat << EOF > ${SECRET_VARS_PATH}
-`ansible-vault encrypt_string "${TEMP_ROOT_PASS}" --name 'root_pass'`
-`ansible-vault encrypt_string "${TOKEN_PASSWORD}" --name 'api_token'`
-`ansible-vault encrypt_string "${COUCHBASE_ADMIN_PASS}" --name 'couchbase_admin_pass'`
-EOF
 }
 
 function ssh_key {
@@ -62,44 +49,52 @@ function verify {
     ansible-playbook -i hosts verify.yml
     destroy
 }
-
+# adding user tags to all nodes in cluster?
 # production
 function ansible:build {
-  secrets
+  local TEMP_ROOT_PASS=$(openssl rand -base64 32)
+  local LINODE_PARAMS=($(curl -sH "Authorization: Bearer ${TOKEN_PASSWORD}" "https://api.linode.com/v4/linode/instances/${LINODE_ID}" | jq -r .type,.region,.image))
+  local LINODE_TAGS=$(curl -sH "Authorization: Bearer ${TOKEN_PASSWORD}" "https://api.linode.com/v4/linode/instances/${LINODE_ID}" | jq -r .tags)
   ssh_key
   # write vars file
   sed 's/  //g' <<EOF > ${VARS_PATH}
-  # linode vars
+  # account vars
+  api_token: ${TOKEN_PASSWORD}
+  # cluster vars
   ssh_keys: ${ANSIBLE_SSH_PUB_KEY}
   instance_prefix: ${INSTANCE_PREFIX}
   type: ${LINODE_PARAMS[0]}
   region: ${LINODE_PARAMS[1]}
   image: ${LINODE_PARAMS[2]}
+  linode_tags: ${LINODE_TAGS}
   uuid: ${UUID}
-  cluster_uuid: ${UUID}-${LINODE_PARAMS[1]}
   webserver_stack: standalone
-  rdns: ${RDNS}
-  # sudo user
+  root_pass: ${TEMP_ROOT_PASS}
+  server_count: ${CLUSTER_SIZE}
+  # user vars
   sudo_username: ${SUDO_USERNAME}
   email_address: ${EMAIL_ADDRESS}
-  server_count: ${CLUSTER_SIZE}
-  # paths
+  # ssl generation vars
+  country_name: ${COUNTRY_NAME}
+  state_or_province_name: ${STATE_OR_PROVINCE_NAME}
+  locality_name: ${LOCALITY_NAME}
+  organization_name: ${ORGANIZATION_NAME}
+  ca_common_name: ${CA_COMMON_NAME}
+  # nginx vars
+  _domain: ${RDNS}
 EOF
 }
 
 function ansible:deploy {
-  local SECRET_VARS_PATH="./group_vars/couchbase/secret_vars"
-
   ansible-playbook -v provision.yml
-  ansible-playbook -i hosts site.yml -v --extra-vars "root_password=${ROOT_PASS}"
+  ansible-playbook -i hosts site.yml -v
 }
 
 function test:deploy {
   export DISTRO="${1}"
   export DATE="$(date '+%Y-%m-%d-%H%M%S')"
   ansible-playbook provision.yml --extra-vars "ssh_keys=${HOME}/.ssh/id_ansible_ed25519.pub instance_prefix=${DISTRO}-${DATE} image=linode/${DISTRO}"
-  ansible-playbook -i hosts site.yml --extra-vars "root_password=${ROOT_PASS}"
-  verify
+  ansible-playbook -i hosts site.yml --extra-vars "root_password=${TMP_ROOT_PASS}"
 }
 
 # main

@@ -10,19 +10,14 @@
     mode: 0644    
     block: |
       # System User 
-      
       Sudo User: {{ sudo_username }}
-      Password: {{ sudo_username_pass }}
-      
-      # Couchbase Server User
-
-      Administrator: {{ couchbase_admin_pass }}
-  run_once: true
-  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
+      Password: {{ sudo_password }}
+      # Couchbase Server User: Administrator
+      Couchbase Server Administrator Password: {{ couchbase_admin_password }}
+      # Couchbase CA Password
+      ca_password: {{ ca_password }}
 
 - name: write MOTD with Web UI Address
   template:
     src: templates/motd.j2
     dest: /etc/motd
-  run_once: true
-  delegate_to: "{{ groups['couchbase_cluster'][0] }}"
